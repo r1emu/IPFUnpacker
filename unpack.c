@@ -316,10 +316,10 @@ int read_ipf (unsigned char *ipf, size_t size)
     strncpy (filename, filename_ptr, ipf_info->filename_length);
 
     if (!(
-       check_extension (filename, ".mp3")
-    || check_extension (filename, ".fsb")
-    || check_extension (filename, ".jpg")
-    || check_extension (filename, ".JPG"))
+       check_extension (filename, "mp3")
+    || check_extension (filename, "fsb")
+    || check_extension (filename, "jpg")
+    || check_extension (filename, "JPG"))
     ) {
       // Those files aren't encrypted
       Decrypt(keys, data, dataSize);
