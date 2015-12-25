@@ -248,7 +248,7 @@ int file_write (const char *filename, unsigned char *buffer, size_t size)
   return 1;
 }
 
-int check_extension (char *filename, char *extension)
+int is_extension (char *filename, char *extension)
 {
     const char *dot = strrchr (filename, '.');
 
@@ -316,18 +316,18 @@ int read_ipf (unsigned char *ipf, size_t size)
     strncpy (filename, filename_ptr, ipf_info->filename_length);
 
     if (!(
-       check_extension (filename, "mp3")
-    || check_extension (filename, "fsb")
-    || check_extension (filename, "jpg")
-    || check_extension (filename, "JPG"))
+       is_extension (filename, "mp3")
+    || is_extension (filename, "fsb")
+    || is_extension (filename, "jpg")
+    || is_extension (filename, "JPG"))
     ) {
       // Those files aren't encrypted
       Decrypt(keys, data, dataSize);
-
-      cursor += sizeof (*ipf_info);
-      cursor += ipf_info->archivename_length;
-      cursor += ipf_info->filename_length;
     }
+
+    cursor += sizeof (*ipf_info);
+    cursor += ipf_info->archivename_length;
+    cursor += ipf_info->filename_length;
   }
 }
 
