@@ -119,19 +119,19 @@ buffer_print (
 }
 
 
-#define BYTEn(x, n)   (*((BYTE*)&(x)+n))
-#define BYTE3(x)   BYTEn(x,  3)
+#define uint8_tn(x, n)   (*((uint8_t*)&(x)+n))
+#define uint8_t3(x)   uint8_tn(x,  3)
 
 uint32_t rc_crc32(uint32_t crc, char b)
 {
   return CRC32_m_tab[(crc ^ b) & 0xFF] ^ (crc >> 8);
 }
 
-void UpdateKeys(int *keys, char b)
+void UpdateKeys(unsigned int *keys, char b)
 {
   keys[1] = rc_crc32 (keys[1], b);
   keys[2] = 0x8088405 * ((uint8_t) keys[1] + keys[2]) + 1;
-  keys[3] = rc_crc32 (keys[3], BYTE3(keys[2]));
+  keys[3] = rc_crc32 (keys[3], uint8_t3(keys[2]));
 }
 
 void Decrypt(unsigned int *keys, unsigned char *buffer, int size)
@@ -141,19 +141,19 @@ void Decrypt(unsigned int *keys, unsigned char *buffer, int size)
     size = ((unsigned int)(size - 1) >> 1) + 1;
     for (int i = 0; i < size; i++, buffer += 2) 
     {
-      uint16_t v = *((WORD *)keys + 6) & 0xFFFD | 2;
+      uint16_t v = (*((uint16_t *)keys + 6) & 0xFFFD) | 2;
       *buffer ^= (v * (v ^ 1)) >> 8;
 
-      keys[2] = 0x8088405 * (keys[2] + (BYTE)((*((WORD *)keys + 2) >> 8) ^ LOBYTE(CRC32_m_tab[(BYTE)(keys[1] ^ *buffer)]))) + 1;
+      keys[2] = 0x8088405 * (keys[2] + (uint8_t)((*((uint16_t *)keys + 2) >> 8) ^ LOBYTE(CRC32_m_tab[(uint8_t)(keys[1] ^ *buffer)]))) + 1;
       keys[1] = rc_crc32 (keys[1], *buffer);
-      keys[3] = rc_crc32 (keys[3], BYTE3(keys[2]));
+      keys[3] = rc_crc32 (keys[3], uint8_t3(keys[2]));
     }
   }
 }
 
-int *GenerateKeys(int *keys) 
+void GenerateKeys(unsigned int *keys) 
 {
-    char password[20] = {0x6F, 0x66, 0x4F, 0x31, 0x61, 0x30, 0x75, 0x65, 0x58, 0x41, 0x3F, 0x20, 0x5B, 0xFF, 0x73, 0x20, 0x68, 0x20, 0x25, 0x3F};
+    unsigned char password[20] = {0x6F, 0x66, 0x4F, 0x31, 0x61, 0x30, 0x75, 0x65, 0x58, 0x41, 0x3F, 0x20, 0x5B, 0xFF, 0x73, 0x20, 0x68, 0x20, 0x25, 0x3F};
 
     keys[1] = 0x12345678;
     keys[2] = 0x23456789;
@@ -162,14 +162,12 @@ int *GenerateKeys(int *keys)
     for (int i = 0; i < sizeof(password); i++) {
       UpdateKeys(keys, password[i]);
     }
-
-    return keys;
 }
 
-void Encrypt(unsigned int *keys, BYTE *buffer, int size)
+void Encrypt(unsigned int *keys, uint8_t *buffer, int size)
 {
   unsigned int v4;
-  DWORD v5;
+  uint32_t v5;
   unsigned int v6;
   int counter;
 
@@ -183,8 +181,8 @@ void Encrypt(unsigned int *keys, BYTE *buffer, int size)
       keys[1] = v5;
       v6 = 0x8088405 * (keys[2] + (unsigned __int8)v5) + 1;
       keys[2] = v6;
-      keys[3] = CRC32_m_tab[(unsigned __int8)(v4 ^ BYTE3(v6))] ^ (v4 >> 8);
-      *buffer ^= (unsigned __int16)((v4 & 0xFFFD | 2) * ((v4 & 0xFFFD | 2) ^ 1)) >> 8;
+      keys[3] = CRC32_m_tab[(unsigned __int8)(v4 ^ uint8_t3(v6))] ^ (v4 >> 8);
+      *buffer ^= (unsigned __int16)(((v4 & 0xFFFD) | 2) * (((v4 & 0xFFFD) | 2) ^ 1)) >> 8;
       buffer += 2;
       --counter;
     } while (counter);
@@ -209,8 +207,6 @@ size_t file_get_size (const char *filename)
 
 unsigned char *file_map (const char *filename, size_t *_size) 
 {
-  FILE *f = NULL;
-
   HANDLE hIpf, hMap;
   if (!(hIpf = CreateFile (filename, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL))) {
     fprintf (stderr, "Cannot CreateFile '%s'\n", filename);
@@ -294,7 +290,7 @@ int read_ipf (unsigned char *ipf, size_t size)
   } *ipf_info = (void *) &ipf[archive_header->filetable_offset];
   #pragma pack(pop)
 
-  unsigned char *cursor = (void *) ipf_info;
+  char *cursor = (void *) ipf_info;
 
   for (int i = 0; i < archive_header->file_count; i++, ipf_info = (void *) cursor) {
     // Iterate through all the files
@@ -302,7 +298,7 @@ int read_ipf (unsigned char *ipf, size_t size)
     unsigned char *data = &ipf[ipf_info->data_offset];
     size_t dataSize = ipf_info->compressed_length;
 
-    int keys[4] = {1, 0, 0, 0};
+    unsigned int keys[4] = {1, 0, 0, 0};
     GenerateKeys(keys);
 
     char *archive_ptr = cursor + sizeof (*ipf_info);
@@ -329,6 +325,8 @@ int read_ipf (unsigned char *ipf, size_t size)
     cursor += ipf_info->archivename_length;
     cursor += ipf_info->filename_length;
   }
+
+  return 1;
 }
 
 int main (int argc, char **argv) {

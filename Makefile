@@ -1,4 +1,4 @@
 unpack:
-	gcc -O3 unpack.c -o unpack
+	gcc -Wall -pedantic -O3 unpack.c -o unpack
 clean:
-	rm *.exe
+	rm -f *.exe
