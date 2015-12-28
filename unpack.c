@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+typedef enum {
+  ACTION_ENCRYPT,
+  ACTION_DECRYPT,
+} PackAction;
+
 unsigned int CRC32_m_tab[] = {
   0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA,
   0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,
@@ -119,8 +124,8 @@ buffer_print (
 }
 
 
-#define uint8_tn(x, n)   (*((uint8_t*)&(x)+n))
-#define uint8_t3(x)   uint8_tn(x,  3)
+#define BYTEN(x, n) (*((uint8_t*)&(x)+n))
+#define BYTE3(x)    BYTEN(x,  3)
 
 uint32_t rc_crc32(uint32_t crc, char b)
 {
@@ -131,14 +136,14 @@ void UpdateKeys(unsigned int *keys, char b)
 {
   keys[1] = rc_crc32 (keys[1], b);
   keys[2] = 0x8088405 * ((uint8_t) keys[1] + keys[2]) + 1;
-  keys[3] = rc_crc32 (keys[3], uint8_t3(keys[2]));
+  keys[3] = rc_crc32 (keys[3], BYTE3(keys[2]));
 }
 
-void Decrypt(unsigned int *keys, unsigned char *buffer, int size)
+void Decrypt(unsigned int *keys, unsigned char *buffer, size_t size)
 {
   if (keys[0])
   {
-    size = ((unsigned int)(size - 1) >> 1) + 1;
+    size = ((size - 1) >> 1) + 1;
     for (int i = 0; i < size; i++, buffer += 2) 
     {
       uint16_t v = (*((uint16_t *)keys + 6) & 0xFFFD) | 2;
@@ -146,7 +151,7 @@ void Decrypt(unsigned int *keys, unsigned char *buffer, int size)
 
       keys[2] = 0x8088405 * (keys[2] + (uint8_t)((*((uint16_t *)keys + 2) >> 8) ^ LOBYTE(CRC32_m_tab[(uint8_t)(keys[1] ^ *buffer)]))) + 1;
       keys[1] = rc_crc32 (keys[1], *buffer);
-      keys[3] = rc_crc32 (keys[3], uint8_t3(keys[2]));
+      keys[3] = rc_crc32 (keys[3], BYTE3(keys[2]));
     }
   }
 }
@@ -164,7 +169,7 @@ void GenerateKeys(unsigned int *keys)
     }
 }
 
-void Encrypt(unsigned int *keys, uint8_t *buffer, int size)
+void Encrypt(unsigned int *keys, uint8_t *buffer, unsigned int size)
 {
   unsigned int v4;
   uint32_t v5;
@@ -173,16 +178,16 @@ void Encrypt(unsigned int *keys, uint8_t *buffer, int size)
 
   if (keys[0] && size)
   {
-    counter = ((unsigned int)(size - 1) >> 1) + 1;
+    counter = ((size - 1) >> 1) + 1;
     do
     {
       v4 = keys[3];
-      v5 = (keys[1] >> 8) ^ CRC32_m_tab[(unsigned __int8)(keys[1] ^ *buffer)];
+      v5 = (keys[1] >> 8) ^ CRC32_m_tab[(uint8_t)(keys[1] ^ *buffer)];
       keys[1] = v5;
-      v6 = 0x8088405 * (keys[2] + (unsigned __int8)v5) + 1;
+      v6 = 0x8088405 * (keys[2] + (uint8_t)v5) + 1;
       keys[2] = v6;
-      keys[3] = CRC32_m_tab[(unsigned __int8)(v4 ^ uint8_t3(v6))] ^ (v4 >> 8);
-      *buffer ^= (unsigned __int16)(((v4 & 0xFFFD) | 2) * (((v4 & 0xFFFD) | 2) ^ 1)) >> 8;
+      keys[3] = CRC32_m_tab[(uint8_t)(v4 ^ BYTE3(v6))] ^ (v4 >> 8);
+      *buffer ^= (uint16_t)(((v4 & 0xFFFD) | 2) * (((v4 & 0xFFFD) | 2) ^ 1)) >> 8;
       buffer += 2;
       --counter;
     } while (counter);
@@ -256,7 +261,7 @@ int is_extension (char *filename, char *extension)
     return strcmp (dot + 1, extension) == 0;
 }
 
-int read_ipf (unsigned char *ipf, size_t size) 
+int read_ipf (unsigned char *ipf, size_t size, PackAction action) 
 {
   unsigned char *header = &ipf[size-24];
 
@@ -318,7 +323,15 @@ int read_ipf (unsigned char *ipf, size_t size)
     || is_extension (filename, "JPG"))
     ) {
       // Those files aren't encrypted
-      Decrypt(keys, data, dataSize);
+      switch (action) {
+        case ACTION_DECRYPT:
+          Decrypt(keys, data, dataSize);
+        break;
+
+        case ACTION_ENCRYPT:
+          Encrypt(keys, data, dataSize);
+        break;
+      }
     }
 
     cursor += sizeof (*ipf_info);
@@ -331,9 +344,23 @@ int read_ipf (unsigned char *ipf, size_t size)
 
 int main (int argc, char **argv) {
 
-    if (argc != 2) {
-      printf ("Usage : decrypt.exe <crypted IPF>\n");
+    if (argc < 2) {
+      printf ("Usage : decrypt.exe <crypted IPF> [encrypt/decrypt]\n");
       return 0;
+    }
+
+    PackAction action = ACTION_DECRYPT;
+    if (argc == 3) {
+      if (strcmp(argv[2], "encrypt") == 0) {
+        action = ACTION_ENCRYPT;
+      }
+      else if (strcmp(argv[2], "encrypt") == 0) {
+        action = ACTION_ENCRYPT;
+      }
+      else {
+        printf ("Unknown action '%s'", argv[2]);
+        return -1;
+      }
     }
 
     // Read the encrypted IPF
@@ -346,7 +373,7 @@ int main (int argc, char **argv) {
     
     // Parsing IPF
     fprintf (stderr, "[+] Parsing IPF '%s' ... ", argv[1]);
-    if (!(read_ipf (ipf, size))) {
+    if (!(read_ipf (ipf, size, action))) {
       fprintf (stderr, "\n[!] Cannot read and decrypt the file '%s'\n", argv[1]);
     }
 
