@@ -354,8 +354,8 @@ int main (int argc, char **argv) {
       if (strcmp(argv[2], "encrypt") == 0) {
         action = ACTION_ENCRYPT;
       }
-      else if (strcmp(argv[2], "encrypt") == 0) {
-        action = ACTION_ENCRYPT;
+      else if (strcmp(argv[2], "decrypt") == 0) {
+        action = ACTION_DECRYPT;
       }
       else {
         printf ("Unknown action '%s'", argv[2]);
