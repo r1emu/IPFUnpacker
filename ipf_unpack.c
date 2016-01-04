@@ -281,7 +281,12 @@ int main (int argc, char **argv) {
         return 0;
     }
 
-    // Unmap
+    // Flush and Unmap
+    if (!(FlushViewOfFile(ipf, size))) {
+        printf ("\n[!] Cannot flush the file. Reason : %lu.\n", GetLastError());
+        return 0;
+    }
+
     if (!(UnmapViewOfFile (ipf))) {
         printf ("\n[!] Cannot unmap the view of file. Reason : %lu.\n", GetLastError ());
         return 0;
