@@ -1,7 +1,19 @@
-#include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
+#include <errno.h>
+
+#ifdef WIN32
+#include <windows.h>
+#else
+#include <fcntl.h>
+#include <sys/mman.h>
+#endif
+
+#define error(...)   fprintf(stderr, "\033[1;31m [!] "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n\033[0m");
+#define info(...)    fprintf(stderr, "\033[1;32m [+] "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n\033[0m");
+#define warning(...) fprintf(stderr, "\033[1;33m [?] "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n\033[0m");
 
 typedef enum {
     ACTION_ENCRYPT,
@@ -42,6 +54,10 @@ unsigned int CRC32_m_tab[] = {
     0xBDBDF21C, 0xCABAC28A, 0x53B39330, 0x24B4A3A6, 0xBAD03605, 0xCDD70693, 0x54DE5729, 0x23D967BF,
     0xB3667A2E, 0xC4614AB8, 0x5D681B02, 0x2A6F2B94, 0xB40BBE37, 0xC30C8EA1, 0x5A05DF1B, 0x2D02EF8D
 };
+
+#ifndef LOBYTE
+#define LOBYTE(w) ((unsigned char)(w))
+#endif
 
 #define BYTEN(x, n) (* ((uint8_t*)& (x)+n))
 #define BYTE3(x)    BYTEN (x,  3)
@@ -110,16 +126,18 @@ void encrypt (unsigned int *keys, uint8_t *buffer, unsigned int size)
     }
 }
 
+#ifdef WIN32
+// File mapping for Win32
 unsigned char *file_map (const char *filename, size_t *_size) 
 {
     HANDLE hIpf, hMap;
     if (!(hIpf = CreateFile (filename, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL))) {
-        printf ("Cannot CreateFile '%s'. Reason : %lu.\n", filename, GetLastError ());
+        error ("Cannot CreateFile '%s'. Reason : %lu.", filename, GetLastError ());
         return NULL;
     }
 
     if (!(hMap = CreateFileMapping (hIpf, NULL, PAGE_READWRITE, 0, 0, NULL))) {
-        printf ("Cannot create file mapping '%s'. Reason : %lu.\n", filename, GetLastError ());
+        error ("Cannot create file mapping '%s'. Reason : %lu.", filename, GetLastError ());
         return NULL;
     }
 
@@ -127,7 +145,7 @@ unsigned char *file_map (const char *filename, size_t *_size)
     void *map = NULL;
 
     if (!(map = MapViewOfFile (hMap, FILE_MAP_ALL_ACCESS, 0, 0, fileSize))) {
-        printf ("Cannot map file '%s'. Reason : %lu.\n", filename, GetLastError ());
+        error ("Cannot map file '%s'. Reason : %lu.", filename, GetLastError ());
         return NULL;
     }
 
@@ -135,12 +153,65 @@ unsigned char *file_map (const char *filename, size_t *_size)
     return map;
 }
 
+int flush_ipf (void *ipf, size_t size)
+{
+    // Flush and Unmap
+    if (!(FlushViewOfFile(ipf, size))) {
+        error ("Cannot flush the file. Reason : %lu.", GetLastError());
+        return 0;
+    }
+
+    if (!(UnmapViewOfFile (ipf))) {
+        error ("Cannot unmap the view of file. Reason : %lu.", GetLastError ());
+        return 0;
+    }
+
+    return 1;
+}
+
+#else
+#include <sys/stat.h>
+// File mapping for Linux
+unsigned char *file_map (const char *filename, size_t *_size) 
+{
+    int hIpf;
+    if (!(hIpf = open (filename, O_RDWR))) {
+        error ("Cannot open '%s'. Reason : %s.", filename, strerror(errno));
+        return NULL;
+    }
+
+    struct stat st;
+    fstat (hIpf, &st);
+    size_t fileSize = st.st_size;
+
+    void *map = NULL;
+    if ((map = mmap (NULL, fileSize, PROT_READ | PROT_WRITE, MAP_PRIVATE, hIpf, 0)) == MAP_FAILED) {
+        error ("Cannot map file '%s'. Reason : %s.", filename, strerror(errno));
+        return NULL;
+    }
+
+    *_size = fileSize;
+    return map;
+}
+
+int flush_ipf (void *ipf, size_t size)
+{
+    if (munmap (ipf, size) != 0) {
+        error ("Cannot unmap file.");
+        return 0;
+    }
+
+    return 1;
+}
+
+#endif
+
 int file_write (const char *filename, unsigned char *buffer, size_t size) 
 {
     FILE *f = NULL;
 
     if (!(f = fopen (filename, "wb+"))) {
-        printf ("%s cannot be opened\n", filename);
+        error ("%s cannot be opened", filename);
         return 0;
     }
 
@@ -181,7 +252,7 @@ int read_ipf (unsigned char *ipf, size_t size, PackAction action)
     char magic[] = {0x50, 0x4b, 0x05, 0x06};
 
     if (memcmp (&archive_header->magic, magic, sizeof(magic)) != 0) {
-        printf ("Wrong magic word : %#x\n", archive_header->magic);
+        error ("Wrong magic word : %#x", archive_header->magic);
         return 0;
     }
 
@@ -246,7 +317,7 @@ int read_ipf (unsigned char *ipf, size_t size, PackAction action)
 int main (int argc, char **argv) {
 
     if (argc < 2) {
-        printf ("Usage : decrypt.exe <crypted IPF> [encrypt/decrypt]\n");
+        info ("Usage : decrypt.exe <crypted IPF> [encrypt/decrypt]");
         return 0;
     }
 
@@ -260,7 +331,7 @@ int main (int argc, char **argv) {
             action = ACTION_DECRYPT;
         }
         else {
-            printf ("Unknown action '%s'", argv[2]);
+            error ("Unknown action '%s'", argv[2]);
             return -1;
         }
     }
@@ -270,29 +341,23 @@ int main (int argc, char **argv) {
     unsigned char *ipf;
 
     if (!(ipf = file_map (argv[1], &size))) {
-        printf ("[!] Cannot map the ipf '%s'\n", argv[1]);
+        error ("Cannot map the ipf '%s'", argv[1]);
         return -1;
     }
 
     // Parsing IPF
-    printf ("[+] Parsing IPF '%s' ... ", argv[1]);
+    info ("Parsing IPF '%s' ... ", argv[1]);
     if (!(read_ipf (ipf, size, action))) {
-        printf ("\n[!] Cannot read and decrypt the file '%s'\n", argv[1]);
+        error ("Cannot read and decrypt the file '%s'", argv[1]);
         return 0;
     }
 
-    // Flush and Unmap
-    if (!(FlushViewOfFile(ipf, size))) {
-        printf ("\n[!] Cannot flush the file. Reason : %lu.\n", GetLastError());
+    if (!(flush_ipf(ipf, size))) {
+        error ("Cannot flush the file.");
         return 0;
     }
 
-    if (!(UnmapViewOfFile (ipf))) {
-        printf ("\n[!] Cannot unmap the view of file. Reason : %lu.\n", GetLastError ());
-        return 0;
-    }
-
-    printf ("Done!\n");
+    info ("Done!");
 
     return 0;
 }
