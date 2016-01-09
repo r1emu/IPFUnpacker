@@ -141,9 +141,13 @@ unsigned char *file_map (const char *filename, size_t *_size)
         return NULL;
     }
 
-    size_t fileSize = GetFileSize (hIpf, NULL);
-    void *map = NULL;
+    size_t fileSize;
+    if ((fileSize = GetFileSize (hIpf, NULL)) == INVALID_FILE_SIZE) {
+        printf ("Cannot get '%s' file size correctly. Reason : %lu.\n", filename, GetLastError ());
+        return NULL;
+    }
 
+    void *map = NULL;
     if (!(map = MapViewOfFile (hMap, FILE_MAP_ALL_ACCESS, 0, 0, fileSize))) {
         error ("Cannot map file '%s'. Reason : %lu.", filename, GetLastError ());
         return NULL;
@@ -215,8 +219,15 @@ int file_write (const char *filename, unsigned char *buffer, size_t size)
         return 0;
     }
 
-    fwrite (buffer, size, 1, f);
-    fclose (f);
+    if (fwrite (buffer, size, 1, f) != 1) {
+        printf ("Cannot write '%zu' bytes to '%s'\n.", size, filename);
+        return 0;
+    }
+
+    if (fclose (f) != 0) {
+        printf ("Cannot close successfully the file '%s'.", filename);
+        return 0;
+    }
 
     return 1;
 }
