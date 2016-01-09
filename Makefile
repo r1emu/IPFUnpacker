@@ -1,5 +1,5 @@
 all:
-	cd ./src/ipf_unpack && $(MAKE)
+	$(MAKE) -C src/ipf_unpack
 
 clean:
-	cd ./src/ipf_unpack && $(MAKE) clean
+	$(MAKE) clean -C src/ipf_unpack
