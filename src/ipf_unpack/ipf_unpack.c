@@ -242,7 +242,7 @@ int main (int argc, char **argv)
 {
     if (argc != 3) {
         info ("Usage : ipf_decrypt.exe <crypted IPF> [encrypt/decrypt/extract]");
-        return 0;
+        return 1;
     }
 
     IpfParams params = {0};
@@ -257,13 +257,13 @@ int main (int argc, char **argv)
         params.action = ACTION_EXTRACT;
         if (!(params.zlib = calloc (1, sizeof(Zlib)))) {
             error ("Cannot allocate zlib.");
-            return 0;
+            return 1;
         }
         mkpath ("./extract");
     }
     else {
         error ("Unknown action '%s'", argv[2]);
-        return -1;
+        return 1;
     }
 
     // Read the ipf_encrypted IPF
@@ -272,19 +272,19 @@ int main (int argc, char **argv)
 
     if (!(ipf = file_map (argv[1], &size))) {
         error ("Cannot map the ipf '%s'", argv[1]);
-        return -1;
+        return 1;
     }
 
     // Parsing IPF
     info ("Parsing IPF '%s' (%s) ...", argv[1], argv[2]);
     if (!(ipf_read (ipf, size, process_ipf, &params))) {
         error ("Cannot read and ipf_decrypt the file '%s'", argv[1]);
-        return 0;
+        return 1;
     }
 
     if (!(file_flush (argv[1], ipf, size))) {
         error ("Cannot flush the file.");
-        return 0;
+        return 1;
     }
 
     // Cleaning

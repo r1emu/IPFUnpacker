@@ -90,7 +90,7 @@ typedef enum {
         do {                                                              \
             dbg_ex(DBG_LEVEL_ERROR, stderr, "[FATAL ERROR] " format "\n", ##__VA_ARGS__); \
             make_pause(); \
-            exit (-1);                                                    \
+            exit (1);                                                     \
         } while (0)
 
     /** Dump a buffer into the standard output.
