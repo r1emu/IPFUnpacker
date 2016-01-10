@@ -15,7 +15,7 @@ INCLUDES := -I. \
 			-I$(COMMON_DIR)
 
 # C compiler flag
-CFLAGS := -D_GNU_SOURCE -D__DBG_ACTIVATED__ -Wall -march=native $(INCLUDES) -c
+CFLAGS := -D_GNU_SOURCE -D__DBG_ACTIVATED__ -Wall $(INCLUDES) -c
 
 # Linker library flags
 LIBDIRS  := -L$(API_DIR)/lib

@@ -232,7 +232,7 @@ int main (int argc, char **argv)
         return 0;
     }
 
-    IpfParams params;
+    IpfParams params = {0};
 
     if (strcmp (argv[2], "encrypt") == 0) {
         params.action = ACTION_ENCRYPT;
