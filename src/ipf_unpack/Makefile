@@ -8,7 +8,7 @@ OBJDIR   := .
 BINDIR   := ../..
 BIN_DEBUGDIR := $(BINDIR)/debug
 COMMON_DIR := ../common
-COMMON_SRC := dbg zlib crc32 fs
+COMMON_SRC := dbg zlib crc32 fs md5
 
 INCLUDES := -I. \
 			-I$(INCPATH) \
@@ -41,7 +41,7 @@ debug: CFLAGS += -g
 debug: clean $(BIN_DEBUGDIR)/$(TARGET)
 
 # strip all symbols from release verison
-release: LDFLAGS += -s 
+release: LDFLAGS += -s
 release: CFLAGS += -s -O2
 release: $(BINDIR)/$(TARGET)
 

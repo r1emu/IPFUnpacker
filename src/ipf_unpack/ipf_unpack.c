@@ -2,175 +2,258 @@
 #include "dbg/dbg.h"
 #include "crc32/crc32.h"
 #include "fs/fs.h"
+#include "zlib/zlib.h"
+#include "md5/md5.h"
+#include "ipf.h"
+#include "ies.h"
+#include <libgen.h>
 
-void generate_keys (uint32_t *keys) 
+void keys_generate (uint32_t *keys) 
 {
     uint8_t password[20] = {0x6F, 0x66, 0x4F, 0x31, 0x61, 0x30, 0x75, 0x65, 0x58, 0x41, 0x3F, 0x20, 0x5B, 0xFF, 0x73, 0x20, 0x68, 0x20, 0x25, 0x3F};
 
-    keys[1] = 0x12345678;
-    keys[2] = 0x23456789;
-    keys[3] = 0x34567890;
+    keys[0] = 0x12345678;
+    keys[1] = 0x23456789;
+    keys[2] = 0x34567890;
 
     for (int i = 0; i < sizeof(password); i++) {
-        update_keys (keys, password[i]);
+        keys_update (keys, password[i]);
     }
 }
 
-void update_keys (uint32_t *keys, char b)
+void keys_update (uint32_t *keys, char b)
 {
-    keys[1] = crc32 (keys[1], b);
-    keys[2] = 0x8088405 * ((uint8_t) keys[1] + keys[2]) + 1;
-    keys[3] = crc32 (keys[3], BYTE3 (keys[2]));
+    keys[0] = compute_crc32 (keys[0], b);
+    keys[1] = 0x8088405 * ((uint8_t) keys[0] + keys[1]) + 1;
+    keys[2] = compute_crc32 (keys[2], BYTE3 (keys[1]));
 }
 
-void decrypt (uint32_t *keys, uint8_t *buffer, size_t size)
+void ipf_decrypt (uint8_t *buffer, size_t size)
 {
-    if (keys[0]) {
-        size = ((size - 1) >> 1) + 1;
-        for (int i = 0; i < size; i++, buffer += 2) {
-            uint16_t v = (* ((uint16_t *)keys + 6) & 0xFFFD) | 2;
-            *buffer ^= (v * (v ^ 1)) >> 8;
+    uint32_t keys[3];
+    keys_generate (keys);
+    size = ((size - 1) >> 1) + 1;
 
-            keys[2] = 0x8088405 * (keys[2] + (uint8_t) ((* ((uint16_t *)keys + 2) >> 8) ^ LOBYTE (CRC32_m_tab[ (uint8_t) (keys[1] ^ *buffer)]))) + 1;
-            keys[1] = crc32 (keys[1], *buffer);
-            keys[3] = crc32 (keys[3], BYTE3 (keys[2]));
+    for (int i = 0; i < size; i++, buffer += 2) {
+        uint16_t v = (keys[2] & 0xFFFD) | 2;
+        *buffer ^= (v * (v ^ 1)) >> 8;
+        keys_update (keys, *buffer);
+    }
+}
+
+void ipf_encrypt (uint8_t *buffer, size_t size)
+{
+    uint32_t keys[3];
+    keys_generate (keys);
+    size = ((size - 1) >> 1) + 1;
+
+    for (int i = 0; i < size; i++, buffer += 2) {
+        uint16_t v = (keys[2] & 0xFFFD) | 2;
+        keys_update (keys, *buffer);
+        *buffer ^= (v * (v ^ 1)) >> 8;
+    }
+}
+
+typedef struct {
+    FILE *output;
+} IesParams;
+int process_ies (IesTable *table, void *userdata)
+{
+    IesParams *params = (IesParams *) userdata;
+    FILE *output = params->output;
+
+    for (int colId = 0; colId < table->header->colsCount; colId++) {
+        IesColumn *col = &table->columns[colId];
+        fprintf (output, "%s", col->name);
+        if (colId != table->header->colsCount - 1) {
+            fprintf (output, ",");
         }
     }
-}
+    fprintf(output, "\n");
 
-void encrypt (uint32_t *keys, uint8_t *buffer, uint32_t size)
-{
-    uint32_t v4;
-    uint32_t v5;
-    uint32_t v6;
-    int counter;
-
-    if (keys[0] && size)
+    for (int rowId = 0; rowId < table->header->rowsCount; rowId++) 
     {
-        counter = ((size - 1) >> 1) + 1;
-        do {
-            v4 = keys[3];
-            v5 = (keys[1] >> 8) ^ CRC32_m_tab[ (uint8_t) (keys[1] ^ *buffer)];
-            keys[1] = v5;
-            v6 = 0x8088405 * (keys[2] + (uint8_t)v5) + 1;
-            keys[2] = v6;
-            keys[3] = CRC32_m_tab[ (uint8_t) (v4 ^ BYTE3 (v6))] ^ (v4 >> 8);
-            *buffer ^= (uint16_t) (( (v4 & 0xFFFD) | 2) * (( (v4 & 0xFFFD) | 2) ^ 1)) >> 8;
-            buffer += 2;
-            --counter;
-        } while (counter);
-    }
-}
+        IesRow *row = &table->rows[rowId];
+        for (int cellId = 0; cellId < row->cellsCount; cellId++)
+        {
+            IesCell(0, 0) *_cell = (void *) row->cells[cellId];
+            IesCell(_cell->optSize, _cell->strSize) *cell = (void *) _cell;
+            IesColumn *col = cell->col;
 
-int read_ipf (uint8_t *ipf, size_t size, PackAction action) 
-{
-    uint8_t *header = &ipf[size-24];
+            switch (col->type) {
+                case 0: {
+                    if (cell->flt.value == (int) cell->flt.value) {
+                        fprintf (output, "%d", (int) cell->flt.value);
+                    } else {
+                        fprintf (output, "%f", cell->flt.value);
+                    }
+                    if (cellId != row->cellsCount - 1) {
+                        fprintf (output, ",");
+                    }
+                    // info ("\t[%d][%s] => %f", cellId, col->name, cell->flt.value);
+                } break;
 
-    #pragma pack (push, 1)
-    struct ArchiveHeader {
-        uint16_t file_count;
-        uint32_t filetable_offset;
-        uint16_t unk;
-        uint32_t filefooter_offset;
-        uint32_t magic;
-        uint32_t base_revision;
-        uint32_t revision;
-    } *archive_header = (void *) header;
-    #pragma pack (pop)
-
-    char magic[] = {0x50, 0x4b, 0x05, 0x06};
-
-    if (memcmp (&archive_header->magic, magic, sizeof(magic)) != 0) {
-        error ("Wrong magic word : %#x", archive_header->magic);
-        return 0;
-    }
-
-    #pragma pack (push, 1)
-    struct IpfInfo {
-        uint16_t filename_length;
-        uint32_t crc;
-        uint32_t compressed_length;
-        uint32_t uncompressed_length;
-        uint32_t data_offset;
-        uint16_t archivename_length;
-    } *ipf_info = (void *) &ipf[archive_header->filetable_offset];
-    #pragma pack (pop)
-
-    char *cursor = (void *) ipf_info;
-
-    for (int i = 0; i < archive_header->file_count; i++, ipf_info = (void *) cursor) {
-        // Iterate through all the files
-        // Get the file data
-        uint8_t *data = &ipf[ipf_info->data_offset];
-        size_t dataSize = ipf_info->compressed_length;
-
-        uint32_t keys[4] = {1, 0, 0, 0};
-        generate_keys (keys);
-
-        char *archive_ptr = cursor + sizeof(*ipf_info);
-        char archive[ipf_info->archivename_length + 1];
-        memset (archive, 0, sizeof(archive));
-        strncpy (archive, archive_ptr, ipf_info->archivename_length);
-
-        char *filename_ptr = archive_ptr + ipf_info->archivename_length;
-        char filename[ipf_info->filename_length + 1];
-        memset (filename, 0, sizeof(filename));
-        strncpy (filename, filename_ptr, ipf_info->filename_length);
-
-        if (!(
-            // Those files aren't encrypted
-           file_is_extension (filename, "mp3")
-        || file_is_extension (filename, "fsb")
-        || file_is_extension (filename, "jpg")
-        || file_is_extension (filename, "JPG"))
-        ) {
-            switch (action) {
-                case ACTION_EXTRACT:
-                    decrypt (keys, data, dataSize);
-                break;
-
-                case ACTION_DECRYPT:
-                    decrypt (keys, data, dataSize);
-                break;
-
-                case ACTION_ENCRYPT:
-                    encrypt (keys, data, dataSize);
-                break;
+                case 1:
+                case 2: {
+                    fprintf (output, "%s", cell->str.value);
+                    if (cellId != row->cellsCount - 1) {
+                        fprintf (output, ",");
+                    }
+                    // info ("\t[%d][%s] => <%s>", cellId, col->name, cell->str.value);
+                } break;
             }
         }
-
-        cursor += sizeof(*ipf_info);
-        cursor += ipf_info->archivename_length;
-        cursor += ipf_info->filename_length;
+        fprintf(output, "\n");
     }
 
     return 1;
 }
 
+typedef struct {
+    PackAction action;
+    Zlib *zlib;
+} IpfParams;
+int process_ipf (uint8_t *data, size_t dataSize, char *archive, char *filename, void *userdata)
+{
+    int status = 0;
+    IpfParams *params = (IpfParams *) userdata;
+    PackAction action = params->action;
+    Zlib *zlib = params->zlib;
+
+    // Check if the file is encrypted
+    int crypted_extension (char *filename) {
+        return (
+            // Those files aren't encrypted
+            file_is_extension (filename, "mp3")
+        ||  file_is_extension (filename, "fsb")
+        ||  file_is_extension (filename, "jpg"));
+    }
+
+    // Check if the file is worth being decompressed
+    int worth_decompress (char *filename) {
+        return (
+            file_is_extension (filename, "xml")
+        ||  file_is_extension (filename, "ies")
+        ||  file_is_extension (filename, "lua"));
+    }
+
+    // Check if the file contents is text only
+    int text_file (char *filename) {
+        return (
+            file_is_extension (filename, "xml")
+        ||  file_is_extension (filename, "lua"));
+    }
+
+    switch (action) 
+    {
+        case ACTION_EXTRACT: {
+            // We don't decompress all the files, only those interesting
+            if (worth_decompress (filename) && !(crypted_extension (filename))) {
+                if (!(zlibDecompress (zlib, data, dataSize))) {
+                    error ("Cannot decompress '%s'.", filename);
+                }
+            }
+
+            // Get basename and dirname
+            char *name = basename (filename);
+            char *path = dirname (filename);
+            name = (name) ? name : filename;
+
+            if (!(path && name)) {
+                error ("Cannot extract directory / filename : %s / %s.", archive, filename);
+                goto cleanup;
+            }
+
+            char targetPath[PATH_MAX] = {0};
+            char targetFullName[PATH_MAX] = {0};
+            sprintf (targetPath, "./extract/%s/%s", archive, path);
+            mkpath (targetPath);
+            sprintf (targetFullName, "%s/%s", targetPath, name);
+
+            // If we decompressed it, write the data in the file
+            if (worth_decompress (name))
+            {
+                uint8_t *fileContent = zlib->buffer;
+                size_t fileSize = zlib->header.size;
+                
+                if (text_file (name) && fileSize != 0) {
+                    // Don't write null byte at the end
+                    fileSize--;
+                }
+
+                if (file_is_extension (name, "ies")) {
+                    // IES parser
+                    FILE *ies = fopen (targetFullName, "w+");
+                    IesParams iesParams = {.output = ies};
+                    ies_read (fileContent, fileSize, process_ies, &iesParams);
+                    fclose (ies);
+                }
+                else {
+                    if (!(file_write (targetFullName, fileContent, fileSize))) {
+                        error ("Cannot write data to '%s'.", targetFullName);
+                        goto cleanup;
+                    }
+                }
+            } 
+            else {
+                // Write the MD5 inside the file
+                char md5[33] = {0};
+                MD5_bufferEx (data, dataSize, md5);
+                if (!(file_write (targetFullName, (uint8_t *) md5, sizeof(md5) - 1))) {
+                    error ("Cannot write md5 to '%s'.", targetFullName);
+                    goto cleanup;
+                }
+            }
+        }
+        break;
+
+        case ACTION_DECRYPT:
+            if (!(crypted_extension (filename))) {
+                ipf_decrypt (data, dataSize);
+            }
+        break;
+
+        case ACTION_ENCRYPT:
+            if (!(crypted_extension (filename))) {
+                ipf_encrypt (data, dataSize);
+            }
+        break;
+    }
+
+    status = 1;
+cleanup:
+    return status;
+}
+
 int main (int argc, char **argv)
 {
     if (argc != 3) {
-        info ("Usage : decrypt.exe <crypted IPF> [encrypt/decrypt]");
+        info ("Usage : ipf_decrypt.exe <crypted IPF> [encrypt/decrypt/extract]");
         return 0;
     }
 
-    PackAction action;
+    IpfParams params;
 
     if (strcmp (argv[2], "encrypt") == 0) {
-        action = ACTION_ENCRYPT;
+        params.action = ACTION_ENCRYPT;
     }
     else if (strcmp (argv[2], "decrypt") == 0) {
-        action = ACTION_DECRYPT;
+        params.action = ACTION_DECRYPT;
     }
     else if (strcmp (argv[2], "extract") == 0) {
-        action = ACTION_EXTRACT;
+        params.action = ACTION_EXTRACT;
+        if (!(params.zlib = calloc (1, sizeof(Zlib)))) {
+            error ("Cannot allocate zlib.");
+            return 0;
+        }
+        mkpath ("./extract");
     }
     else {
         error ("Unknown action '%s'", argv[2]);
         return -1;
     }
 
-    // Read the encrypted IPF
+    // Read the ipf_encrypted IPF
     size_t size;
     uint8_t *ipf;
 
@@ -181,8 +264,8 @@ int main (int argc, char **argv)
 
     // Parsing IPF
     info ("Parsing IPF '%s' (%s) ...", argv[1], argv[2]);
-    if (!(read_ipf (ipf, size, action))) {
-        error ("Cannot read and decrypt the file '%s'", argv[1]);
+    if (!(ipf_read (ipf, size, process_ipf, &params))) {
+        error ("Cannot read and ipf_decrypt the file '%s'", argv[1]);
         return 0;
     }
 
@@ -191,6 +274,8 @@ int main (int argc, char **argv)
         return 0;
     }
 
+    // Cleaning
+    free (params.zlib);
     info ("Done!");
 
     return 0;

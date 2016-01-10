@@ -31,7 +31,7 @@ uint16_t magic;
 
 typedef struct {
     ZlibHeader header;
-    uint8_t buffer [0x40000];
+    uint8_t buffer [1024 * 1024 * 100]; // Maximum decompressed file : 100Mo
 } Zlib;
 
 /**

@@ -33,7 +33,7 @@ typedef enum {
 #define GET_FILENAME(file) __FILENAME__WIN(__FILENAME__NUX(file))
 #define __FILENAME__ GET_FILENAME(__FILE__)
 
-#define pause()                              \
+#define make_pause()                         \
     do {                                     \
         info("Press a key to continue...");  \
         getc (stdin);                        \
@@ -89,7 +89,7 @@ typedef enum {
     #define die(format, ...)                                              \
         do {                                                              \
             dbg_ex(DBG_LEVEL_ERROR, stderr, "[FATAL ERROR] " format "\n", ##__VA_ARGS__); \
-            pause(); \
+            make_pause(); \
             exit (-1);                                                    \
         } while (0)
 

@@ -3,3 +3,6 @@ all:
 
 clean:
 	$(MAKE) clean -C src/ipf_unpack
+
+release:
+	$(MAKE) release -C src/ipf_unpack
