@@ -16,8 +16,10 @@
 
 void ies_decrypt_string (char *string, size_t size)
 {
-    for (; *string != '\0'; string++) {
-        *string ^= 0x01;
+    for (size_t i = 0; i < size; i++) {
+        if (string[i] != '\0') {
+            string[i] ^= 0x01;
+        }
     }
 }
 
