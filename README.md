@@ -4,11 +4,12 @@
 #### "decrypt" feature
 Decrypt feature will **replace** the encrypted IPF in argument by the decrypted one.  
 Make sure to backup your IPF files somewhere before decrypting them.  
+Make sure not decrypting twice the same IPF.  
 Once decrypted, the IPF is readable by traditional tools (such as IPF Suite).  
 
 #### "encrypt" feature
 Encrypt will restore a decrypted IPF in argument to an encrypted one.  
-Make sure not encrypting twice the same IPF.
+Make sure not encrypting twice the same IPF.  
 
 #### "extract" feature
 Extract takes a decrypted IPF as argument and generates a list of files.
