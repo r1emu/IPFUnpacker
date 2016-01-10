@@ -47,32 +47,31 @@ release: $(BINDIR)/$(TARGET)
 
 $(BINDIR)/$(TARGET): buildrepo $(OBJS)
 	@mkdir -p `dirname $@`
-	@echo -e "\033[1;34mLinking $@\033[0m"
-	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
-	@echo -e "\033[1;32m$@ sucessfully built.\033[0m"
+	@echo -e "\033[1;34mLinking '$@'\033[0m"
+	@$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
+	@echo -e "\033[1;32m ---> '$(TARGET)' sucessfully built !\033[0m"
 
 $(BIN_DEBUGDIR)/$(TARGET): buildrepo $(OBJS)
 	@mkdir -p `dirname $@`
-	@echo -e "\033[1;34mLinking $@\033[0m"
-	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
-	@echo -e "\033[1;32m$@ sucessfully built.\033[0m"
+	@echo -e "\033[1;34mLinking '$@'\033[0m"
+	@$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
+	@echo -e "\033[1;32m ---> '$(TARGET)' sucessfully built !\033[0m"
 
 $(OBJDIR)/%.o: %.$(SRCEXT)
-	@echo -e "\033[1;34mGenerating dependencies for $<"
-	$(call make-depend,$<,$@,$(subst .o,.dep,$@))
-	@echo -e "\033[1;34mCompiling $<"
-	$(CC) $(CFLAGS) $< -o $@
+	@$(call make-depend,$<,$@,$(subst .o,.dep,$@))
+	@echo -e "\033[1;34mCompiling '$<'"
+	@$(CC) $(CFLAGS) $< -o $@
 
 clean:
 	@echo -e "\033[1;34mCleaning ..."
-	$(RM) -rf $(TARGET) $(OBJS) $(subst .o,.dep,$(OBJS))
+	@$(RM) -rf $(TARGET) $(OBJS) $(subst .o,.dep,$(OBJS))
 
 distclean: clean
-	$(RM) -r $(BINDIR)/$(TARGET)
-	$(RM) -r $(BIN_DEBUGDIR)/$(TARGET)
+	@$(RM) -r $(BINDIR)/$(TARGET)
+	@$(RM) -r $(BIN_DEBUGDIR)/$(TARGET)
 
 buildrepo:
-	$(call make-repo)
+	@$(call make-repo)
 
 define make-repo
    for dir in $(SRCDIRS); \
