@@ -1,3 +1,16 @@
+/**
+ *
+ *   ██████╗   ██╗ ███████╗ ███╗   ███╗ ██╗   ██╗
+ *   ██╔══██╗ ███║ ██╔════╝ ████╗ ████║ ██║   ██║
+ *   ██████╔╝ ╚██║ █████╗   ██╔████╔██║ ██║   ██║
+ *   ██╔══██╗  ██║ ██╔══╝   ██║╚██╔╝██║ ██║   ██║
+ *   ██║  ██║  ██║ ███████╗ ██║ ╚═╝ ██║ ╚██████╔╝
+ *   ╚═╝  ╚═╝  ╚═╝ ╚══════╝ ╚═╝     ╚═╝  ╚═════╝
+ *
+ * @license GNU GENERAL PUBLIC LICENSE - Version 2, June 1991
+ *          See LICENSE file for further information
+ */
+
 #include "fs.h"
 #include "dbg/dbg.h"
 #include <limits.h>

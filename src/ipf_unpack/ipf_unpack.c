@@ -1,3 +1,16 @@
+/**
+ *
+ *   ██████╗   ██╗ ███████╗ ███╗   ███╗ ██╗   ██╗
+ *   ██╔══██╗ ███║ ██╔════╝ ████╗ ████║ ██║   ██║
+ *   ██████╔╝ ╚██║ █████╗   ██╔████╔██║ ██║   ██║
+ *   ██╔══██╗  ██║ ██╔══╝   ██║╚██╔╝██║ ██║   ██║
+ *   ██║  ██║  ██║ ███████╗ ██║ ╚═╝ ██║ ╚██████╔╝
+ *   ╚═╝  ╚═╝  ╚═╝ ╚══════╝ ╚═╝     ╚═╝  ╚═════╝
+ *
+ * @license GNU GENERAL PUBLIC LICENSE - Version 2, June 1991
+ *          See LICENSE file for further information
+ */
+
 #include "ipf_unpack.h"
 #include "dbg/dbg.h"
 #include "crc32/crc32.h"
