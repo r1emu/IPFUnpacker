@@ -26,7 +26,7 @@
 
 typedef struct {
 uint16_t magic;
-    uint16_t size;
+    uint32_t size;
 } ZlibHeader;
 
 typedef struct {

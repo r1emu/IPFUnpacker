@@ -196,7 +196,7 @@ int process_ipf (uint8_t *data, size_t dataSize, char *archive, char *filename, 
 
                 if (file_is_extension (name, "ies")) {
                     // IES parser
-                    FILE *ies = fopen (targetFullName, "w+");
+                    FILE *ies = fopen (targetFullName, "wb+");
                     IesParams iesParams = {.output = ies};
                     ies_read (fileContent, fileSize, process_ies, &iesParams);
                     fclose (ies);
