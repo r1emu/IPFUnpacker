@@ -12,9 +12,6 @@
  */
 
 // ---------- Includes ------------
-#ifndef WIN32
-#include <execinfo.h>
-#endif
 #include "dbg.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -71,7 +68,7 @@ void _dbg(int level, char *format, ...) {
     }
 
     switch (level) {
-        #ifdef WIN32
+        #if defined(WIN32) || defined(__CYGWIN__)
         case DBG_LEVEL_INFO:    SetConsoleTextAttribute(GetStdHandle (STD_OUTPUT_HANDLE), 0x0A); break;
         case DBG_LEVEL_DEBUG: break;
         case DBG_LEVEL_WARNING: SetConsoleTextAttribute(GetStdHandle (STD_OUTPUT_HANDLE), 0x0E); break;
@@ -90,7 +87,7 @@ void _dbg(int level, char *format, ...) {
         vfprintf(_output, format, args);
     va_end(args);
 
-    #ifdef WIN32
+    #if defined(WIN32) || defined(__CYGWIN__)
     SetConsoleTextAttribute(GetStdHandle (STD_OUTPUT_HANDLE), 0x07);
     #else
     fprintf(_output, "\033[0m");
@@ -138,7 +135,7 @@ _bufferPrint(void *buffer, int bufferSize, char *prefix) {
 
 
 /* Crash handlers */
-#ifdef WIN32
+#if defined(WIN32) || defined(__CYGWIN__)
 LONG WINAPI crashHandler(EXCEPTION_POINTERS *ExceptionInfo) {
     die("Application crashed at %p. Exception code = %x",
          ExceptionInfo->ContextRecord->Rip, ExceptionInfo->ExceptionRecord->ExceptionCode);

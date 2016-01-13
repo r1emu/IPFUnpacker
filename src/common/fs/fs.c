@@ -21,24 +21,24 @@ uint8_t *file_map (char *filename, size_t *_size)
 {
     HANDLE hIpf, hMap;
     if (!(hIpf = CreateFile (filename, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL))) {
-        error ("Cannot CreateFile '%s'. Reason : %lu.", filename, GetLastError ());
+        error ("Cannot CreateFile '%s'. Reason : %d.", filename, (int) GetLastError ());
         return NULL;
     }
 
     if (!(hMap = CreateFileMapping (hIpf, NULL, PAGE_READWRITE, 0, 0, NULL))) {
-        error ("Cannot create file mapping '%s'. Reason : %lu.", filename, GetLastError ());
+        error ("Cannot create file mapping '%s'. Reason : %d.", filename, (int) GetLastError ());
         return NULL;
     }
 
     size_t fileSize;
     if ((fileSize = GetFileSize (hIpf, NULL)) == INVALID_FILE_SIZE) {
-        printf ("Cannot get '%s' file size correctly. Reason : %lu.\n", filename, GetLastError ());
+        printf ("Cannot get '%s' file size correctly. Reason : %d.\n", filename, (int) GetLastError ());
         return NULL;
     }
 
     void *map = NULL;
     if (!(map = MapViewOfFile (hMap, FILE_MAP_ALL_ACCESS, 0, 0, fileSize))) {
-        error ("Cannot map file '%s'. Reason : %lu.", filename, GetLastError ());
+        error ("Cannot map file '%s'. Reason : %d.", filename, (int) GetLastError ());
         return NULL;
     }
 
@@ -50,12 +50,12 @@ int file_flush (char *filename, void *data, size_t size)
 {
     // Flush and Unmap
     if (!(FlushViewOfFile (data, size))) {
-        error ("Cannot flush the file. Reason : %lu.", GetLastError ());
+        error ("Cannot flush the file. Reason : %d.", (int) GetLastError ());
         return 0;
     }
 
     if (!(UnmapViewOfFile (data))) {
-        error ("Cannot unmap the view of file. Reason : %lu.", GetLastError ());
+        error ("Cannot unmap the view of file. Reason : %d.", (int) GetLastError ());
         return 0;
     }
 
@@ -138,8 +138,8 @@ int file_is_extension (char *filename, char *extension)
 static int _mkdir (char *path) {
     int status;
 
-    #ifdef WIN32
-    status = mkdir (path);
+    #if defined(WIN32) || defined(__CYGWIN__)
+    status = CreateDirectory (path, NULL);
     #else
     status = mkdir (path, S_IRWXU);
     #endif

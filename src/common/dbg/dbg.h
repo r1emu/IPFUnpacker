@@ -166,17 +166,15 @@ void dbgSetCustomOutput(char *filename);
 void dbgClose(void);
 
 // crash handlers
-#ifdef WIN32
+#if defined(WIN32) || defined(__CYGWIN__)
 #include <windows.h>
 LONG WINAPI crashHandler(EXCEPTION_POINTERS *ExceptionInfo);
 #else
 #include <ucontext.h>
 #include <execinfo.h>
-
 void printTrace(void);
 void crashHandler(int sig, siginfo_t *siginfo, void *_context);
-
-#endif // WIN32
+#endif
 
 // print tabulations
 extern int dbgTabulations;
