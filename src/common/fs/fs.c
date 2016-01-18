@@ -65,18 +65,22 @@ int file_flush (char *filename, void *data, size_t size)
 // File mapping for Linux
 uint8_t *file_map (char *filename, size_t *_size) 
 {
+    struct stat sbuf;
+    if (stat(filename, &sbuf) != 0) {
+	error ("Cannot get file size.");
+	return NULL;
+    }
+    size_t fileSize = sbuf.st_size;
+
     int hIpf;
     if (!(hIpf = open (filename, O_RDWR))) {
         error ("Cannot open '%s'. Reason : %s.", filename, strerror (errno));
         return NULL;
     }
 
-    struct stat st;
-    fstat (hIpf, &st);
-    size_t fileSize = st.st_size;
-
     void *map = NULL;
-    if ((map = mmap (NULL, fileSize, PROT_READ | PROT_WRITE, MAP_PRIVATE, hIpf, 0)) == MAP_FAILED) {
+    info ("FileSize = %d", fileSize);
+    if ((map = mmap (NULL, fileSize, PROT_READ | PROT_WRITE, MAP_SHARED, hIpf, 0)) == MAP_FAILED) {
         error ("Cannot map file '%s'. Reason : %s.", filename, strerror (errno));
         return NULL;
     }
@@ -103,6 +107,7 @@ int file_flush (char *filename, void *data, size_t size)
 
 int file_write (char *filename, uint8_t *buffer, size_t size) 
 {
+    return 1;
     FILE *f = NULL;
 
     if (!(f = fopen (filename, "wb+"))) {
