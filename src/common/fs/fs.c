@@ -102,10 +102,8 @@ int file_flush (char *filename, void *data, size_t size)
         return 0;
     }
     
-    if (munmap (data, size) != 0) {
-        error ("Cannot unmap file.");
-        return 0;
-    }
+    // Cleanup
+    free (data);
 
     return 1;
 }
