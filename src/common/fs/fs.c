@@ -81,6 +81,11 @@ uint8_t *file_map (char *filename, size_t *_size)
         return NULL;
     }
 
+    if (close (hIpf) != 0) {
+        error ("Cannot close the IPF file.");
+        return NULL;
+    }
+
     *_size = fileSize;
     return map;
 }
