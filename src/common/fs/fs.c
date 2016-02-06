@@ -65,23 +65,28 @@ int file_flush (char *filename, void *data, size_t size)
 // File mapping for Linux
 uint8_t *file_map (char *filename, size_t *_size) 
 {
-    int hIpf;
-    if (!(hIpf = open (filename, O_RDWR))) {
+    FILE *hIpf;
+    if (!(hIpf = fopen (filename, "rb"))) {
         error ("Cannot open '%s'. Reason : %s.", filename, strerror (errno));
         return NULL;
     }
 
-    struct stat st;
-    fstat (hIpf, &st);
-    size_t fileSize = st.st_size;
+    fseek (hIpf, 0L, SEEK_END);
+    size_t fileSize = ftell (hIpf);
+    rewind (hIpf);
 
     void *map = NULL;
-    if ((map = mmap (NULL, fileSize, PROT_READ | PROT_WRITE, MAP_PRIVATE, hIpf, 0)) == MAP_FAILED) {
-        error ("Cannot map file '%s'. Reason : %s.", filename, strerror (errno));
+    if (!(map = calloc (fileSize, 1))) {
+        error ("Cannot allocate file map of size '%d'.", fileSize);
         return NULL;
     }
 
-    if (close (hIpf) != 0) {
+    if (fread (map, 1, fileSize, hIpf) != fileSize) {
+        error ("Cannot read file of size '%d'.", fileSize);
+        return NULL;
+    }
+
+    if (fclose (hIpf) != 0) {
         error ("Cannot close the IPF file.");
         return NULL;
     }
@@ -115,8 +120,11 @@ int file_write (char *filename, uint8_t *buffer, size_t size)
         return 0;
     }
 
-    if (size != 0 && fwrite (buffer, size, 1, f) != 1) {
-        error ("Cannot write '%llu' bytes to '%s'\n.", size, filename);
+    size_t count;
+    count = fwrite (buffer, 1, size, f);
+    if (size != 0 && count != size) {
+        error ("Cannot write '%llu' bytes to '%s' => '%llu' written.", 
+            size, filename, count);
         return 0;
     }
 
