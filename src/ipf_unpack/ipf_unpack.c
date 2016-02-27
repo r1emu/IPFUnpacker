@@ -147,6 +147,9 @@ int process_ipf (uint8_t *data, size_t dataSize, char *archive, char *filename, 
         return (
             file_is_extension (filename, "xml")
         ||  file_is_extension (filename, "ies")
+        ||  file_is_extension (filename, "jpg")
+        ||  file_is_extension (filename, "png")
+        ||  file_is_extension (filename, "tga")
         ||  file_is_extension (filename, "lua"));
     }
 
@@ -160,11 +163,18 @@ int process_ipf (uint8_t *data, size_t dataSize, char *archive, char *filename, 
     switch (action) 
     {
         case ACTION_EXTRACT: {
+            uint8_t *fileContent = data;
+            size_t fileSize = dataSize;
+
             // We don't decompress all the files, only those interesting
             if (worth_decompress (filename) && !(crypted_extension (filename))) {
                 if (!(zlibDecompress (zlib, data, dataSize))) {
                     error ("Cannot decompress '%s'.", filename);
+                    goto cleanup;
                 }
+
+                fileContent = zlib->buffer;
+                fileSize = zlib->header.size;
             }
 
             // Get basename and dirname
@@ -186,9 +196,6 @@ int process_ipf (uint8_t *data, size_t dataSize, char *archive, char *filename, 
             // If we decompressed it, write the data in the file
             if (worth_decompress (name))
             {
-                uint8_t *fileContent = zlib->buffer;
-                size_t fileSize = zlib->header.size;
-                
                 if (text_file (name) && fileSize != 0) {
                     // Don't write null byte at the end
                     fileSize--;
