@@ -41,7 +41,7 @@ zlibCompress (
     stream.zfree = 0;
 
     int result;
-    if ((result = deflateInit2 (&stream, 1, Z_DEFLATED, -15, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY)) != Z_OK) {
+    if ((result = deflateInit (&stream, 1)) != Z_OK) {
         warning("Can't init compression : error code = %x.", result);
         return 0;
     }

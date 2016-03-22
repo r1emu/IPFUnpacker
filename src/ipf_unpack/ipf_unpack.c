@@ -108,7 +108,7 @@ int process_ies (IesTable *table, void *userdata)
 
                 case 1:
                 case 2: {
-                    fprintf (output, "%s", cell->str.value);
+                    fprintf (output, "\"%s\"", cell->str.value);
                     if (cellId != row->cellsCount - 1) {
                         fprintf (output, ",");
                     }
