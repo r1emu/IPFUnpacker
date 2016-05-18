@@ -62,48 +62,58 @@ int file_flush (char *filename, void *data, size_t size)
     return 1;
 }
 #else
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
 // File mapping for Linux
 uint8_t *file_map (char *filename, size_t *_size) 
 {
-    FILE *hIpf;
-    if (!(hIpf = fopen (filename, "rb"))) {
-        error ("Cannot open '%s'. Reason : %s.", filename, strerror (errno));
+    int fd;
+    struct stat sb;
+
+    if ((fd = open (filename, O_RDONLY)) == −1) {
+        error ("Cannot open");
         return NULL;
     }
 
-    fseek (hIpf, 0L, SEEK_END);
-    size_t fileSize = ftell (hIpf);
-    rewind (hIpf);
-
-    void *map = NULL;
-    if (!(map = calloc (fileSize, 1))) {
-        error ("Cannot allocate file map of size '%d'.", fileSize);
+    if (fstat (fd, &sb) == −1) {
+        error ("Cannot fstat");
         return NULL;
     }
 
-    if (fread (map, 1, fileSize, hIpf) != fileSize) {
-        error ("Cannot read file of size '%d'.", fileSize);
+    if (!S_ISREG (sb.st_mode)) {
+        fprintf (stderr, "%s is not a file\n", filename);
         return NULL;
     }
 
-    if (fclose (hIpf) != 0) {
-        error ("Cannot close the IPF file.");
+    if ((map = mmap (0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+        error ("Cannot mmap");
         return NULL;
     }
 
-    *_size = fileSize;
+    if (close (fd) == −1) {
+        error ("Cannot close");
+        return NULL;
+    }
+
+    *_size = sb.st_size;
     return map;
 }
 
 int file_flush (char *filename, void *data, size_t size)
 {
-    if (!(file_write (filename, data, size))) {
-        error ("Cannot write data to file '%s'.", filename);
+    if (!(msync (data, size, MS_SYNC))) {
+        error ("Cannot msync data to file '%s'.", filename);
         return 0;
     }
     
-    // Cleanup
-    free (data);
+    // Unmap
+    if (munmap (data, size) == −1) {
+        error ("munmap failed");
+        return 0;
+    }
 
     return 1;
 }
