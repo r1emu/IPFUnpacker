@@ -61,6 +61,7 @@ int file_flush (char *filename, void *data, size_t size)
 
     return 1;
 }
+
 #else
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -72,13 +73,14 @@ uint8_t *file_map (char *filename, size_t *_size)
 {
     int fd;
     struct stat sb;
+    uint8_t *map = NULL;
 
-    if ((fd = open (filename, O_RDONLY)) == −1) {
+    if ((fd = open (filename, O_RDONLY)) == -1) {
         error ("Cannot open");
         return NULL;
     }
 
-    if (fstat (fd, &sb) == −1) {
+    if (fstat (fd, &sb) == -1) {
         error ("Cannot fstat");
         return NULL;
     }
@@ -88,12 +90,12 @@ uint8_t *file_map (char *filename, size_t *_size)
         return NULL;
     }
 
-    if ((map = mmap (0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+    if ((map = (uint8_t *) mmap (0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
         error ("Cannot mmap");
         return NULL;
     }
 
-    if (close (fd) == −1) {
+    if (close (fd) == -1) {
         error ("Cannot close");
         return NULL;
     }
@@ -110,7 +112,7 @@ int file_flush (char *filename, void *data, size_t size)
     }
     
     // Unmap
-    if (munmap (data, size) == −1) {
+    if (munmap (data, size) == -1) {
         error ("munmap failed");
         return 0;
     }
