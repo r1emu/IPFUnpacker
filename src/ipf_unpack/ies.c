@@ -23,9 +23,9 @@ void ies_decrypt_string (char *string, size_t size)
     }
 }
 
-int ies_read (uint8_t *ies, size_t size, IesCallback callback, void *userdata) 
+bool ies_read (uint8_t *ies, size_t size, IesCallback callback, void *userdata) 
 {
-    int status = 0;
+    bool status = false;
     IesTable table = {0};
     IesHeader *header = (void *) ies;
 
@@ -148,7 +148,7 @@ int ies_read (uint8_t *ies, size_t size, IesCallback callback, void *userdata)
         goto cleanup;
     }
 
-    status = 1;
+    status = true;
 cleanup:
     for (int rowId = 0; rowId < header->rowsCount; rowId++) {
         IesRow *curRow = &table.rows[rowId];

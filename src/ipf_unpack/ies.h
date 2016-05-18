@@ -15,6 +15,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #pragma pack (push, 1)
 typedef struct {
@@ -80,7 +81,7 @@ typedef struct {
 }   IesTable;
 
 // Callback type
-typedef int (*IesCallback) (IesTable *table, void *userdata);
+typedef bool (*IesCallback) (IesTable *table, void *userdata);
 
 // Prototypes
-int ies_read (uint8_t *ies, size_t size, IesCallback callback, void *userdata);
+bool ies_read (uint8_t *ies, size_t size, IesCallback callback, void *userdata);

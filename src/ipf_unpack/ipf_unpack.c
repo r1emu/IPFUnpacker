@@ -20,6 +20,10 @@
 #include "ipf.h"
 #include "ies.h"
 #include <libgen.h>
+#include <stdbool.h>
+
+char *default_decompressed_extensions[] = {"xml", "ies", "jpg", "png", "tga", "lua"};
+
 
 void keys_generate (uint32_t *keys) 
 {
@@ -70,7 +74,7 @@ void ipf_encrypt (uint8_t *buffer, size_t size)
 typedef struct {
     FILE *output;
 } IesParams;
-int process_ies (IesTable *table, void *userdata)
+static bool process_ies (IesTable *table, void *userdata)
 {
     IesParams *params = (IesParams *) userdata;
     FILE *output = params->output;
@@ -119,19 +123,23 @@ int process_ies (IesTable *table, void *userdata)
         fprintf(output, "\n");
     }
 
-    return 1;
+    return true;
 }
 
 typedef struct {
     PackAction action;
     Zlib *zlib;
+    char **extensions;
+    size_t extensionsCount;
 } IpfParams;
-int process_ipf (uint8_t *data, size_t dataSize, char *archive, char *filename, void *userdata)
+static bool process_ipf (uint8_t *data, size_t dataSize, char *archive, char *filename, void *userdata)
 {
     int status = 0;
     IpfParams *params = (IpfParams *) userdata;
     PackAction action = params->action;
     Zlib *zlib = params->zlib;
+    char **extensions = params->extensions;
+    size_t extensionsCount = params->extensionsCount;
 
     // Check if the file is encrypted
     int crypted_extension (char *filename) {
@@ -143,21 +151,14 @@ int process_ipf (uint8_t *data, size_t dataSize, char *archive, char *filename, 
     }
 
     // Check if the file is worth being decompressed
-    int worth_decompress (char *filename) {
-        return (
-            file_is_extension (filename, "xml")
-        ||  file_is_extension (filename, "ies")
-        ||  file_is_extension (filename, "jpg")
-        ||  file_is_extension (filename, "png")
-        ||  file_is_extension (filename, "tga")
-        ||  file_is_extension (filename, "lua"));
-    }
+    int worth_decompress (char *filename, char **extensions, size_t extensionsCount) {
+        for (int i = 0; i < extensionsCount; i++) {
+        	if (file_is_extension (filename, extensions[i])) {
+        		return true;
+        	}
+        }
 
-    // Check if the file contents is text only
-    int text_file (char *filename) {
-        return (
-            file_is_extension (filename, "xml")
-        ||  file_is_extension (filename, "lua"));
+        return false;
     }
 
     switch (action) 
@@ -167,7 +168,7 @@ int process_ipf (uint8_t *data, size_t dataSize, char *archive, char *filename, 
             size_t fileSize = dataSize;
 
             // We don't decompress all the files, only those interesting
-            if (worth_decompress (filename) && !(crypted_extension (filename))) {
+            if (worth_decompress (filename, extensions, extensionsCount) && !(crypted_extension (filename))) {
                 if (!(zlibDecompress (zlib, data, dataSize))) {
                     error ("Cannot decompress '%s'.", filename);
                     goto cleanup;
@@ -194,13 +195,8 @@ int process_ipf (uint8_t *data, size_t dataSize, char *archive, char *filename, 
             sprintf (targetFullName, "%s/%s", targetPath, name);
 
             // If we decompressed it, write the data in the file
-            if (worth_decompress (name))
+            if (worth_decompress (name, extensions, extensionsCount))
             {
-                if (text_file (name) && fileSize != 0) {
-                    // Don't write null byte at the end
-                    fileSize--;
-                }
-
                 if (file_is_extension (name, "ies")) {
                     // IES parser
                     FILE *ies = fopen (targetFullName, "wb+");
@@ -240,18 +236,19 @@ int process_ipf (uint8_t *data, size_t dataSize, char *archive, char *filename, 
         break;
     }
 
-    status = 1;
+    status = true;
 cleanup:
     return status;
 }
 
 int main (int argc, char **argv)
 {
-    if (argc != 3) {
-        info ("Usage : ipf_decrypt.exe <crypted IPF> [encrypt/decrypt/extract]");
+    if (argc < 3) {
+        info ("Usage : ipf_decrypt.exe <crypted IPF> <encrypt|decrypt|extract> [extensions worth decompressing...]");
         return 1;
     }
 
+    // Initialize params
     IpfParams params = {0};
 
     if (strcmp (argv[2], "encrypt") == 0) {
@@ -271,6 +268,14 @@ int main (int argc, char **argv)
     else {
         error ("Unknown action '%s'", argv[2]);
         return 1;
+    }
+    if (argc == 3) {
+    	// Default parameters
+    	params.extensions = default_decompressed_extensions;
+    	params.extensionsCount = sizeof(default_decompressed_extensions) / sizeof(*default_decompressed_extensions);
+    } else {
+    	params.extensions = &argv[3];
+    	params.extensionsCount = argc - 3;
     }
 
     // Read the ipf_encrypted IPF

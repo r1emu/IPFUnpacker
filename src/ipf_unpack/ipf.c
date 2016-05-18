@@ -37,10 +37,10 @@ typedef struct {
 } IpfInfo;
 #pragma pack (pop)
 
-int ipf_read (uint8_t *ipf, size_t size, IpfCallback callback, void *userdata) 
+bool ipf_read (uint8_t *ipf, size_t size, IpfCallback callback, void *userdata) 
 {
     uint8_t *header = &ipf[size-24];
-    int status = 0;
+    bool status = false;
 
     ArchiveHeader *archiveHeader = (void *) header;
     char magic[] = {0x50, 0x4b, 0x05, 0x06};
@@ -79,7 +79,7 @@ int ipf_read (uint8_t *ipf, size_t size, IpfCallback callback, void *userdata)
         cursor += ipfInfo->filenameLength;
     }
 
-    status = 1;
+    status = true;
 cleanup:
     return status;
 }
