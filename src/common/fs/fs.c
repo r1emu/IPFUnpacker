@@ -75,7 +75,7 @@ uint8_t *file_map (char *filename, size_t *_size)
     struct stat sb;
     uint8_t *map = NULL;
 
-    if ((fd = open (filename, O_RDONLY)) == -1) {
+    if ((fd = open (filename, O_RDWR)) == -1) {
         error ("Cannot open");
         return NULL;
     }
@@ -86,12 +86,12 @@ uint8_t *file_map (char *filename, size_t *_size)
     }
 
     if (!S_ISREG (sb.st_mode)) {
-        fprintf (stderr, "%s is not a file\n", filename);
+        error ("%s is not a file\n", filename);
         return NULL;
     }
 
-    if ((map = (uint8_t *) mmap (0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
-        error ("Cannot mmap");
+    if ((map = (uint8_t *) mmap (0, sb.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+        error ("Cannot mmap '%s' : Size = %d (%.2f KB)", filename, sb.st_size, (float) sb.st_size / 1024.0f);
         return NULL;
     }
 
@@ -106,7 +106,7 @@ uint8_t *file_map (char *filename, size_t *_size)
 
 int file_flush (char *filename, void *data, size_t size)
 {
-    if (!(msync (data, size, MS_SYNC))) {
+    if (msync (data, size, MS_SYNC) == -1) {
         error ("Cannot msync data to file '%s'.", filename);
         return 0;
     }
