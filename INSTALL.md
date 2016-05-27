@@ -5,5 +5,12 @@ Here is a quick guide how to compile the sources on **Windows** (for Linux, inst
 
 - Download MSYS2 (http://sourceforge.net/projects/msys2/files/latest/download)
 - Open the mingw64_shell.bat in the MSYS2 installation folder
-- Launch the command `pacman -S gcc make zlib-devel`.
-- You should now be able to compile the code using `make clean && make release` next to the Makefile in the root folder.
+- Launch the following commands :
+```
+pacman -S git gcc make zlib-devel
+git clone https://github.com/r1emu/IPFUnpacker.git
+cd IPFUnpacker
+make clean && make release
+```
+
+The executable "ipf_unpack" should have been compiled fine and should be present inside your IPFUnpacker folder.
