@@ -21,6 +21,9 @@
 #include "ies.h"
 #include <libgen.h>
 #include <stdbool.h>
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
 char *default_decompressed_extensions[] = {"xml", "ies", "jpg", "png", "tga", "lua"};
 
